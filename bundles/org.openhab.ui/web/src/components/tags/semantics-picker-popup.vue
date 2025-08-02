@@ -23,11 +23,11 @@
       <f7-toolbar bottom class="toolbar-details">
         <span />
         <div class="padding-left padding-right text-align-center" style="font-size: 12px">
-          <div v-if="classMode">
+          <template v-if="classMode">
             <f7-checkbox :checked="!limitToClass" @change="toggleLimitToClass" />
             <label @click="toggleLimitToClass" class="advanced-label">Show all classes</label>
-          </div>
-          <f7-checkbox :checked="showNames" @change="toggleShowNames" />
+          </template>
+          <f7-checkbox style="margin-left: 5px" :checked="showNames" @change="toggleShowNames" />
           <label @click="toggleShowNames" class="advanced-label">Show tag names</label>
           <f7-checkbox style="margin-left: 5px" :checked="showSynonyms" @change="toggleShowSynonyms" />
           <label @click="toggleShowSynonyms" class="advanced-label">Show synonyms</label>
