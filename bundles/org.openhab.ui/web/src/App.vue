@@ -473,6 +473,18 @@
     .breakpoint-pin
       opacity 0.75
 
+.panel-left:not(.panel-in-breakpoint),
+.panel-right:not(.panel-in-breakpoint)
+  z-index 10001
+
+.with-panel-left-cover .panel-backdrop-in,
+.with-panel-left-push .panel-backdrop-in,
+.with-panel-left-reveal .panel-backdrop-in,
+.with-panel-right-cover .panel-backdrop-in,
+.with-panel-right-push .panel-backdrop-in,
+.with-panel-right-reveal .panel-backdrop-in
+  z-index 10000
+
 .aurora
   .account
     --f7-list-item-padding-vertical 4px
@@ -674,6 +686,11 @@ export default {
       developerSearch: null,
       currentUrl: '',
 
+      mainViewBounds: {
+        left: 0,
+        right: 0
+      },
+
       logDockFullscreen: false,
 
       // Tracks whether the log-viewer page is active. Updated at pageBeforeIn (entering
@@ -713,11 +730,10 @@ export default {
       return this.runtimeStore.showLogDock && !this.logViewerPageActive
     },
     logDockStyle() {
-      const viewportWidth = this.$f7dim?.width || window.innerWidth
-      const hasPermanentLeftPanel = viewportWidth >= this.f7params.panel.leftBreakpoint && !this.uiOptionsStore.visibleBreakpointDisabled
+      const { left, right } = this.mainViewBounds
       return {
-        left: hasPermanentLeftPanel ? 'calc(var(--f7-panel-width) + var(--f7-safe-area-left))' : 'var(--f7-safe-area-left)',
-        right: 'var(--f7-safe-area-right)'
+        left: `${left}px`,
+        right: `${right}px`
       }
     },
     ...mapStores(useUIOptionsStore, useComponentsStore, useUserStore, useRuntimeStore),
@@ -773,6 +789,21 @@ export default {
     }
   },
   methods: {
+    refreshLogDockLayout() {
+      const mainViewEl = document.querySelector('.view-main.safe-areas')
+      if (!mainViewEl) {
+        this.mainViewBounds = { left: 0, right: 0 }
+        return
+      }
+
+      const rect = mainViewEl.getBoundingClientRect()
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0
+
+      this.mainViewBounds = {
+        left: Math.max(0, Math.round(rect.left)),
+        right: Math.max(0, Math.round(viewportWidth - rect.right))
+      }
+    },
     loadData(useCredentials) {
       performance.mark('loadDataStart')
       const useCredentialsPromise = useCredentials ? this.setBasicCredentials() : Promise.resolve()
@@ -1281,6 +1312,7 @@ export default {
       f7.on('resize', () => {
         this.$f7dim.width = f7.width
         this.$f7dim.height = f7.height
+        this.refreshLogDockLayout()
       })
 
       f7.on('triggerDialog', () => {
@@ -1290,6 +1322,20 @@ export default {
       if (window) {
         window.addEventListener('keydown', this.keyDown)
       }
+
+      this._panelLayoutListener = () => {
+        requestAnimationFrame(() => this.refreshLogDockLayout())
+      }
+      document.addEventListener('panel:open', this._panelLayoutListener)
+      document.addEventListener('panel:close', this._panelLayoutListener)
+      document.addEventListener('panel:opened', this._panelLayoutListener)
+      document.addEventListener('panel:closed', this._panelLayoutListener)
+      document.addEventListener('panel:resize', this._panelLayoutListener)
+      document.addEventListener('panel:breakpoint', this._panelLayoutListener)
+
+      nextTick(() => {
+        this.refreshLogDockLayout()
+      })
 
       this.startEventSource()
       this.startAudioWebSocket()
@@ -1305,6 +1351,16 @@ export default {
         window.removeEventListener('pointercancel', onCancel)
         this._logDockResizeHandlers = null
       }
+    }
+
+    if (this._panelLayoutListener) {
+      document.removeEventListener('panel:open', this._panelLayoutListener)
+      document.removeEventListener('panel:close', this._panelLayoutListener)
+      document.removeEventListener('panel:opened', this._panelLayoutListener)
+      document.removeEventListener('panel:closed', this._panelLayoutListener)
+      document.removeEventListener('panel:resize', this._panelLayoutListener)
+      document.removeEventListener('panel:breakpoint', this._panelLayoutListener)
+      this._panelLayoutListener = null
     }
   }
 }
